@@ -13,6 +13,21 @@ fi
 export INTERNAL_API_URL="${INTERNAL_API_URL:-http://localhost:${PORT}}"
 export PUID="${PUID:-1000}" PGID="${PGID:-1000}"
 
+# Railway shows the host's CPUs (32+) inside a 1 vCPU service: keep image and
+# libuv thread pools small, and size the Node heap to the memory limit.
+export VIPS_CONCURRENCY="${VIPS_CONCURRENCY:-2}"
+export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-4}"
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+if [ -z "${NODE_OPTIONS:-}" ]; then
+  lim=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo max)
+  case "$lim" in
+    ''|max) ;;
+    *) heap=$((lim / 1048576 * 70 / 100))
+       [ "$heap" -lt 192 ] && heap=192
+       export NODE_OPTIONS="--max-old-space-size=$heap" ;;
+  esac
+fi
+
 mkdir -p "$DATA/users" "$DATA/checklists" "$DATA/notes"
 
 # Themes, custom CSS and emoji overrides live in /app/config upstream.
