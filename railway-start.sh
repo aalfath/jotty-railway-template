@@ -53,5 +53,21 @@ if [ "$(id -u)" = "0" ]; then
 fi
 
 # Upstream entrypoint applies runtime patches and drops to PUID:PGID.
-# Node exits non-zero on a crash, so Railway's ON_FAILURE restart applies.
-exec /usr/local/bin/docker-entrypoint.sh "$@"
+# Jotty runs as a child of this script (not as PID 1), so a crash or a kill
+# ends the container with a non-zero code and Railway's ON_FAILURE policy
+# restarts it. A stop request (SIGTERM/SIGINT) is passed on and exits 0.
+stopping=0
+on_stop() { stopping=1; [ -n "${child:-}" ] && kill -TERM "$child" 2>/dev/null; }
+trap on_stop TERM INT
+/usr/local/bin/docker-entrypoint.sh "$@" &
+child=$!
+set +e
+rc=0
+while kill -0 "$child" 2>/dev/null; do
+  wait "$child"
+  rc=$?
+done
+if [ "$stopping" = 1 ]; then exit 0; fi
+[ "$rc" -eq 0 ] && rc=1
+echo "[railway] Jotty exited unexpectedly (code $rc); exiting so Railway restarts it" >&2
+exit "$rc"
