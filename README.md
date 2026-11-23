@@ -32,7 +32,7 @@ Optional settings from [upstream's list](https://github.com/fccview/jotty/blob/m
 4. Gives the volume to uid 1000 and starts Jotty as that user.
 5. Caps libvips and libuv threads and sizes the Node heap to the service's memory limit, so the app stays inside 0.5 GB.
 
-Health check: `/api/health`. Restart policy: on failure.
+Health check: `/api/health`. Restart policy: on failure. `tini` runs as PID 1, so if Jotty crashes or is killed the container exits non-zero and Railway restarts it.
 
 ## Updates
 
